@@ -219,6 +219,11 @@ if ($action === 'get_csrf_token') {
     json_response('success', 'Token retrieved', ['token' => $_SESSION['csrf_token']]);
 }
 
+if ($action === 'get_scan_token') {
+    require __DIR__ . '/../api/system/get_scan_token.php';
+    exit();
+}
+
 if ($action === 'get_backup_status') {
     require __DIR__ . '/../api/backup/get_backup_status.php';
     exit();

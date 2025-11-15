@@ -40,13 +40,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'login') {
         $username = trim($_POST['username'] ?? '');
         $password = trim($_POST['password'] ?? '');
+        
+        // Ambil token-token yang mungkin dikirim
+        $recaptcha_response = $_POST['g-recaptcha-response'] ?? null;
+        $scan_token = $_POST['scan_token'] ?? null;
 
         if (empty($username) || empty($password)) {
             json_response('error', 'Username dan password harus diisi.');
         }
 
+        // Cek apakah kunci reCAPTCHA ada di config
+        $recaptcha_secret = defined('RECAPTCHA_SECRET_KEY') ? RECAPTCHA_SECRET_KEY : '';
+        $recaptcha_site_key_defined = defined('RECAPTCHA_SITE_KEY') && RECAPTCHA_SITE_KEY;
+
+        $is_valid_request = false;
+
+        if (!empty($recaptcha_response)) {
+            if (empty($recaptcha_secret) || !$recaptcha_site_key_defined) {
+                json_response('error', 'Layanan reCAPTCHA belum tersedia.');
+            }
+
+            $verification_url = 'https://www.google.com/recaptcha/api/siteverify';
+            $post_data = http_build_query([
+                'secret' => $recaptcha_secret,
+                'response' => $recaptcha_response,
+                'remoteip' => $_SERVER['REMOTE_ADDR']
+            ]);
+
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_URL, $verification_url);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+            $response = curl_exec($ch);
+            curl_close($ch);
+            $result = json_decode($response, true);
+
+            if ($result && isset($result['success']) && $result['success'] === true) {
+                $is_valid_request = true;
+            } else {
+                $error_codes = $result['error-codes'] ?? [];
+                if (in_array('timeout-or-duplicate', $error_codes)) {
+                    json_response('error', 'Verifikasi reCAPTCHA kedaluwarsa. Muat ulang halaman.');
+                } else {
+                    json_response('error', 'Verifikasi reCAPTCHA gagal. Silakan coba lagi.');
+                }
+            }
+
+        } else if (!empty($scan_token)) {
+            
+            if (isset($_SESSION['scan_token']) && hash_equals($_SESSION['scan_token'], $scan_token)) {
+                $is_valid_request = true;
+                unset($_SESSION['scan_token']);
+            } else {
+                json_response('error', 'Sesi scan tidak valid atau kedaluwarsa. Coba lagi.');
+            }
+
+        } else {
+            if (!empty($recaptcha_secret) && $recaptcha_site_key_defined) {
+                 json_response('error', 'Metode login tidak valid. Token keamanan tidak ada.');
+            } else {
+                $is_valid_request = true;
+            }
+        }
+
+        if (!$is_valid_request) {
+            exit();
+        }
+
         try {
-            // Ambil pengguna berdasarkan username dan join dengan tabel kelas untuk mendapatkan nama kelas.
             $stmt = $pdo->prepare("
                 SELECT u.*, c.name AS kelas_name 
                 FROM users u 
@@ -56,8 +118,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$username]);
             $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-            // Verifikasi password, kemudian atur sesi dengan role dan kelas dari database.
             if ($user && password_verify($password, $user['password'])) {
+                unset($_SESSION['scan_token']); 
+                
                 set_user_session($user['id'], $user['nama'], $user['role'], $user['username'], $user['kelas_name']);
                 json_response('success', 'Login berhasil.');
             } else {

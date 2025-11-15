@@ -12,12 +12,14 @@ html, body {
     width: 100vw;
     padding: 1.5rem;
     position: relative;
-    overflow: hidden;
+    overflow: none;
 }
 
+/* Card Login */
 .login-card {
     width: 100%;
     max-width: 450px;
+    margin: auto 0;
 }
 
 .login-card-header {
@@ -28,17 +30,14 @@ html, body {
 }
 
 .login-card .form-card {
-    padding: 2.5rem;
+    padding: 2.2rem;
 }
 
 .login-page-container .form-group input {
     background-color: rgba(255,255,255,0.2);
 }
 
-html.dark .login-page-container .form-group input {
-    background-color: rgba(0,0,0,0.2);
-}
-
+/* Tombol Login */
 .btn-loading .btn-text {
     visibility: hidden;
 }
@@ -58,14 +57,46 @@ html.dark .login-page-container .form-group input {
 
 .login-actions {
     display: flex;
-    flex-direction: column;
     gap: 0.75rem;
-    margin-top: 1.5rem;
+    margin-top: 1.2rem;
+}
+
+/* Style untuk tombol di modal scan login */
+.login-modal-actions {
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.login-modal-actions button {
+    flex-grow: 1;
+}
+
+/* Tata letak tombol login di form*/
+.login-actions.horizontal {
+    flex-direction: row;
+    align-items: center;
 }
 
 .login-actions .btn {
-    flex-grow: 1;
     justify-content: center;
+}
+
+.login-actions.stacked .btn {
+    flex-grow: 1;
+}
+
+.login-actions.horizontal #loginBtn {
+    flex-grow: 1;
+}
+
+.login-actions .btn-icon {
+    padding: 0.75rem;
+    width: 44px;
+    height: 44px;
+    font-size: 1.25rem;
+    flex-grow: 0;
+    flex-shrink: 0;
 }
 
 .login-actions .btn-secondary {
@@ -74,27 +105,46 @@ html.dark .login-page-container .form-group input {
     color: var(--text-color);
 }
 
-html.dark .login-actions .btn-secondary {
-     background-color: rgba(255,255,255,0.1);
-}
-
-.or-separator {
+/* Placeholder untuk reCAPTCHA */
+.recaptcha-placeholder {
+    height: 75px;
+    width: 300px;
+    max-width: 100%;
+    background-color: var(--secondary-color);
+    border-radius: var(--border-radius);
     display: flex;
     align-items: center;
-    gap: 1rem;
+    justify-content: center;
     color: var(--text-color-light);
-    margin: 0.5rem 0;
-}
-.or-separator hr {
-    flex-grow: 1;
-    border: none;
-    border-top: 1px solid var(--border-color);
-}
-.or-separator span {
     font-size: 0.8rem;
-    font-weight: 500;
+    text-align: center;
+    padding: 0.5rem;
 }
 
+.recaptcha-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
+    min-height: 78px;
+}
+
+#recaptcha-widget-container {
+    width: 304px;
+    height: 78px;
+    border-radius: 3px;
+    overflow: hidden;
+    background-color: transparent;
+    transform: translateZ(0);
+}
+
+#recaptcha-widget-container > div {
+    padding-top: 1px;
+    transform: scale(1.05);
+    width: 100%;
+    height: 100%;
+}
+
+/* Styles for Barcode Scanner Modal */
 #barcode-scanner {
     position: fixed;
     top: 0;
@@ -318,12 +368,7 @@ html.dark .login-actions .btn-secondary {
     gap: 0.5rem;
 }
 
-@media (max-width: 640px) {
-    .scanner-controls {
-        bottom: 9rem;
-    }
-}
-
+/* Styles for Password Modal */
 #password-modal {
     position: fixed;
     top: 0;
@@ -344,4 +389,21 @@ html.dark .login-actions .btn-secondary {
 }
 #password-modal .login-actions {
     flex-direction: row;
+}
+
+@media (max-width: 640px) {
+    .scanner-controls {
+        bottom: 9rem;
+    }
+}
+
+@media (max-width: 380px) {
+    #recaptcha-widget {
+        transform: scale(0.85);
+        transform-origin: center;
+    }
+    .recaptcha-container {
+        min-height: 65px;
+        margin-bottom: 1rem;
+    }
 }
