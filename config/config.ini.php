@@ -67,6 +67,10 @@ define('RECAPTCHA_SECRET_KEY', 'Kunci Rahasia Anda');
 define('GOOGLE_SCRIPT_URL', env('GOOGLE_SCRIPT_URL', ''));
 define('GOOGLE_SCRIPT_SECRET', env('GOOGLE_SCRIPT_SECRET', ''));
 
+// Kredensial reCAPTCHA v2
+define('RECAPTCHA_SITE_KEY', env('RECAPTCHA_SITE_KEY', ''));
+define('RECAPTCHA_SECRET_KEY', env('RECAPTCHA_SECRET_KEY', ''));
+
 // Pengaturan Folder
 // ID Folder utama di Google Drive untuk menyimpan backup riwayat & bukti.
 define('GOOGLE_DRIVE_HISTORY_BACKUP_FOLDER_ID', env("GOOGLE_DRIVE_HISTORY_BACKUP_FOLDER_ID", ''));
