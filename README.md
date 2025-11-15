@@ -1,6 +1,6 @@
 <div align="center">
   <img src="public/assets/favicon/favicon.png" alt="TKJ Inventory Logo" width="120px" />
-  <h1>TKJ Inventory</h1>
+  <h1>TKJ Inventory (Container Version)</h1>
   <p>
     A modern, framework-free inventory management system designed to streamline equipment tracking, borrowing, and returns.
   </p>
@@ -209,3 +209,7 @@ Every line of code, every design choice, and the entire application structure is
 ### 📄 License
 
 Copyright (c) 2025 **Alea Farrel** - All Rights Reserved.
+
+**🛠️ Additional Contributions:**
+
+This **Dockerized version** was prepared and managed by [@ernestoyoofi](https://github.com/ernestoyoofi).

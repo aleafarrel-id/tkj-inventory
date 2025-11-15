@@ -1,0 +1,15 @@
+# Environment
+.env
+.env.prod
+.env.semiprod
+.env.production
+.env.stage
+
+# Docker tester
+docker-compose.tester.yml
+
+# Cache & Storage
+/temp
+/public/temp
+/public/assets/evidence
+/public/assets/img
