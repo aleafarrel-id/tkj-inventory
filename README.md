@@ -163,7 +163,7 @@ sudo chmod -R 775 /var/www/html/tkj-inventory/public/assets/img
 sudo chmod -R 775 /var/www/html/tkj-inventory/public/assets/evidence
 ```
 
-**7. Configure Google Drive Backup**
+**7. Configure Google Drive Backup & reCAPTCHA**
 - **Create a Google Apps Script:**
   - Go to [script.google.com](https://script.google.com).
   - Create a new project.
@@ -172,10 +172,15 @@ sudo chmod -R 775 /var/www/html/tkj-inventory/public/assets/evidence
   - Deploy the script as a **Web app**.
   - Authorize the script's access to your Google Drive.
   - Copy the generated Web app URL.
+
 - **Update `config/config.ini.php`:**
   - Paste your Web app URL into `GOOGLE_SCRIPT_URL`.
   - Paste your secret key into `GOOGLE_SCRIPT_SECRET`.
   - Create folders in your Google Drive for backups and get their IDs. Paste them into the `GOOGLE_DRIVE_*_FOLDER_ID` constants.
+
+- **Update `config/config.ini.php`:**
+  - Paste your site key into `RECAPTCHA_SITE_KEY`.
+  - Paste your secret key into `RECAPTCHA_SECRET_KEY`.
 
 **8. Set Up Cronjob (For Auto-Backup)**
 - This step is required for the "Automatic Scheduled Backups" feature to function.
