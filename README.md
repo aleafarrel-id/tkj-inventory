@@ -60,141 +60,140 @@ This project is built with a passion for simplicity and performance, using only 
 
 ### ⚙️ Deployment Guide
 
-#### Prerequisites
-- A **LEMP Stack** (Linux, Nginx, MySQL/MariaDB, PHP) is required.
-- **PHP extensions**: `pdo_mysql`, `gd`, `curl`, `mbstring`, `zip`.
+> [!CAUTION]
+> Some do not run well on ARM or ARM64 architectures such as Raspberry PI or Ampere CPU. Even if they do run, they cannot run normally. This project was originally designed to run natively on x64 / KVM64.
 
-#### 1. Server Configuration
+> [!WARNING]
+> Cronjob testing is not yet available, so there is no support for autobackups yet.
 
-**Nginx**
-- Edit your Nginx configuration (e.g., `/etc/nginx/nginx.conf`) to allow larger file uploads for evidence photos and backups.
-  ```nginx
-  http {
-      # ... other settings
-      client_max_body_size 25M;
-  }
-  ```
+#### 📦 Prerequisites
 
-**PHP**
-- **(Best Practice)** Set your server's timezone in both `php.ini` files (e.g., `/etc/php/<version>/fpm/php.ini` and `/etc/php/<version>/cli/php.ini`). This is especially important for ensuring the `cron` scheduler runs at the correct local time.
-  ```ini
-  date.timezone = Asia/Jakarta
-  ```
+- Docker on host server (No matter what linux distro or OS you use, as long as it can run Docker properly)
+- Docker compose
 
-#### 2. Installation Steps
+#### 🛠️ Build & Running
 
-**1. Clone the Repository**
-```bash
-git clone [https://github.com/aleafarrel-id/tkj-inventory.git](https://github.com/aleafarrel-id/tkj-inventory.git)
-```
+1. Clone this repository
 
-**2. Move to Web Directory**
-```bash
-sudo mv tkj-inventory /var/www/html/
-```
+   ```bash
+   git clone https://github.com/aleafarrel-id/tkj-inventory.git
+   cd tkj-inventory
+   ```
 
-**3. Configure Nginx Web Root**
-- Edit your Nginx server block configuration file (e.g., `/etc/nginx/sites-available/default`).
-- **Point the `root` directive to the `/public` directory.**
+2. Build the docker image with [bash script](./build.sh), you can change the tag and name as desired (optional).
 
-```nginx
-server {
-    listen 80;
-    server_name your_domain.com;
-    root /var/www/html/tkj-inventory/public; # <-- Point here
+   With bash script:
 
-    index index.php index.html;
+   ```bash
+   bash build.sh
+   ```
 
-    location / {
-        try_files $uri $uri/ /index.php?$query_string;
-    }
+   CLI :
 
-    location ~ \.php$ {
-        include snippets/fastcgi-php.conf;
-        fastcgi_pass unix:/var/run/php/php<your-version>-fpm.sock;
-    }
+   ```bash
+   docker build -t tkj-inventory:latest .
+   ```
 
-    # Deny access to sensitive directories
-    location ~ /(api|config|temp) {
-        deny all;
-    }
-}
-```
-- Restart Nginx to apply changes:
-```bash
-sudo systemctl restart nginx
-```
+3. Configuration production `docker-compose.yml`, it is already included in the [docker compose file](./docker-compose.yml) in this repository. Simply change the password in the database and other requests such as reCAPTCHA, Google Drive, and Google Scripts.
 
-**4. Set Up the Database**
-- Create the database:
-```sql
-CREATE DATABASE tkj_inventory;
-```
-- Import the SQL schema and default admin user:
-```bash
-mysql -u your_username -p tkj_inventory < /var/www/html/tkj-inventory/tkj_inventory.sql
-```
-> **Default Admin Credentials:** `username: admin`, `password: admin123`
+   ```yml
+   services:
+     tkj_inventory:
+       image: tkjskanesga/tkj-inventory:latest
+       container_name: tkj_inventory_app
+       restart: always
+       depends_on:
+         - database
+       environment:
+         # PHP & Database Env
+         - "APP_TIMEZONE=Asia/Jakarta"
+         - "DB_HOST_CONFIG=database" # Same on services docker compose
+         - "DB_NAME_CONFIG=tkj_inventory"
+         - "DB_USER_CONFIG=<username database>"
+         - "DB_PASS_CONFIG=<password database>"
+         # reCAPTCHA v2
+         - "RECAPTCHA_SITE_KEY=<keysite recaptcha>"
+         - "RECAPTCHA_SECRET_KEY=<secret recaptcha>"
+         # Google Script For Backup
+         - "GOOGLE_SCRIPT_URL=<url deployment google scripts>"
+         - "GOOGLE_SCRIPT_SECRET=<key google scripts>"
+         # Google Drive
+         - "GOOGLE_DRIVE_HISTORY_BACKUP_FOLDER_ID="
+         - "GOOGLE_DRIVE_STOCK_EXPORT_FOLDER_ID="
+         - "GOOGLE_DRIVE_ACCOUNTS_EXPORT_FOLDER_ID="
+         - "GOOGLE_DRIVE_AUTOBACKUP_FOLDER_ID="
+       volumes:
+         - tkj_inventory:/var/www/html/tkj-inventory:rw
+       networks:
+         - tkj_inventory
+    
+     webserver:
+       image: nginx:stable-alpine
+       container_name: tkj_inventory_webserver
+       restart: always
+       depends_on:
+         - database
+         - tkj_inventory
+       ports:
+         - "80:80"
+       volumes:
+         - tkj_inventory:/var/www/html/tkj-inventory:ro
+         - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro # See on file nginx.conf
+       networks:
+         - tkj_inventory
+    
+     database:
+       image: yobasystems/alpine-mariadb:11
+       container_name: tkj_inventory_db
+       restart: always
+       environment:
+         # Database Env
+         - "MYSQL_ROOT_PASSWORD=<password root database>"
+         - "MYSQL_DATABASE=tkj_inventory"
+         - "MYSQL_USER=<username database>"
+         - "MYSQL_PASSWORD=<password database>"
+       volumes:
+         - database_data:/var/lib/mysql
+         # MariaDB will automatically perform the first execution for its database structure.
+         - ./tkj_inventory.sql:/docker-entrypoint-initdb.d/tkj_inventory.sql:ro
+       networks:
+         - tkj_inventory
 
-**5. Update Application Configuration**
-- Edit the configuration file: `config/config.ini.php`.
-- **Set Application Timezone:** Define the application's centralized timezone. This is a **new requirement**.
-  ```php
-  define('APP_TIMEZONE', 'Asia/Jakarta');
-  ```
-- **Fill in Database Credentials:**
-  ```php
-  define('DB_NAME_CONFIG', 'tkj_inventory');
-  define('DB_USER_CONFIG', 'your_username');
-  define('DB_PASS_CONFIG', 'your_password');
-  ```
-- This step is **crucial** for the application to connect to the database.
+   volumes:
+     database_data:
+     tkj_inventory:
 
-**6. Set Permissions**
-- The web server needs to be able to write to certain directories for image uploads and temporary files.
-```bash
-# Set ownership to the web server user (e.g., www-data)
-sudo chown -R www-data:www-data /var/www/html/tkj-inventory
-sudo chmod -R 755 /var/www/html/tkj-inventory
+   networks:
+     tkj_inventory:
+       driver: bridge
+   ```
 
-# Make temp and upload directories writable (PENTING UNTUK UPLOAD & BACKUP)
-sudo chmod -R 775 /var/www/html/tkj-inventory/temp
-sudo chmod -R 775 /var/www/html/tkj-inventory/public/assets/img
-sudo chmod -R 775 /var/www/html/tkj-inventory/public/assets/evidence
-```
+4. Configure Google Drive Backup & reCAPTCHA
+  - **Create a Google Apps Script:**
+    - Go to [script.google.com](https://script.google.com).
+    - Create a new project.
+    - Copy the entire content of [`app_script_api.gs`](./app_script_api.gs) from this repository and paste it into the script editor.
+    - Set a strong `SECRET_KEY` inside the script.
+    - Deploy the script as a **Web app**.
+    - Authorize the script's access to your Google Drive.
+    - Copy the generated Web app URL.
+  
+  - **Create Recaptha Key**
+    - Go to [recaptcha admin](https://www.google.com/recaptcha/admin/create?hl=id)
+    - Fill the label, domain/host
+    - Change type reCAPTCHA to "Challenge (v2)"
+    - Select your GCP / Google Cloud Platform
+    - Click "Submit" to create.
+    - Copy site key and secret key.
 
-**7. Configure Google Drive Backup & reCAPTCHA**
-- **Create a Google Apps Script:**
-  - Go to [script.google.com](https://script.google.com).
-  - Create a new project.
-  - Copy the entire content of `app_script_api.txt` from this repository and paste it into the script editor.
-  - Set a strong `SECRET_KEY` inside the script.
-  - Deploy the script as a **Web app**.
-  - Authorize the script's access to your Google Drive.
-  - Copy the generated Web app URL.
+  - **Update `docker-compose.yml`:**
+    - Fill your Web app URL into `GOOGLE_SCRIPT_URL`.
+    - Fill your secret key into `GOOGLE_SCRIPT_SECRET`.
+    - Create folders in your Google Drive for backups and get their IDs. Paste them into the `GOOGLE_DRIVE_*_FOLDER_ID` constants.
+    - Fill your site key into `RECAPTCHA_SITE_KEY`.
+    - Fill your secret key into `RECAPTCHA_SECRET_KEY`.
 
-- **Update `config/config.ini.php`:**
-  - Paste your Web app URL into `GOOGLE_SCRIPT_URL`.
-  - Paste your secret key into `GOOGLE_SCRIPT_SECRET`.
-  - Create folders in your Google Drive for backups and get their IDs. Paste them into the `GOOGLE_DRIVE_*_FOLDER_ID` constants.
-
-- **Update `config/config.ini.php`:**
-  - Paste your site key into `RECAPTCHA_SITE_KEY`.
-  - Paste your secret key into `RECAPTCHA_SECRET_KEY`.
-
-**8. Set Up Cronjob (For Auto-Backup)**
-- This step is required for the "Automatic Scheduled Backups" feature to function.
-- Edit the crontab for the `www-data` user (so the script has correct write permissions for the `temp` directory):
-```bash
-sudo -u www-data crontab -e
-```
-- Add the following line at the end of the file to run the scheduler every minute. The script itself handles the timing (daily/weekly/monthly) based on your UI settings.
-```cron
-* * * * * /usr/bin/php /var/www/html/tkj-inventory/cron/scheduler.php > /dev/null 2>&1
-```
-- Save and exit the editor. The cronjob is now active.
-
-You're all set! Open your browser and navigate to your domain. 🎉
+You're all set! Open your browser and navigate to your domain or IP address. 🎉
 
 ---
 
