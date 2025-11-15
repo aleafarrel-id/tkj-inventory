@@ -1,0 +1,31 @@
+FROM php:8.2-fpm-alpine
+
+RUN apk add --no-cache \
+    mysql-client \
+    curl-dev \
+    oniguruma-dev \
+    libxml2-dev \
+    libzip-dev \
+    libpng-dev \
+    libjpeg-turbo-dev \
+    freetype-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install -j$(nproc) pdo_mysql gd curl mbstring zip \
+    && rm -rf /tmp/* /var/cache/apk/*
+
+# 2. Atur Timezone
+RUN apk add --no-cache tzdata \
+    && echo "Asia/Jakarta" > /etc/timezone \
+    && cp /usr/share/zoneinfo/Asia/Jakarta /etc/localtime \
+    && rm -rf /var/cache/apk/*
+
+WORKDIR /var/www/html/tkj-inventory
+
+COPY . /var/www/html/tkj-inventory
+COPY ./tkj_inventory.sql /var/www/html/tkj-inventory/tkj_inventory.sql
+
+COPY ./entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["php-fpm"]

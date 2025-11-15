@@ -1,0 +1,66 @@
+services:
+  tkj_inventory:
+    image: tkjskanesga/tkj-inventory:latest
+    container_name: tkj_inventory_app
+    restart: always
+    depends_on:
+      - database
+    environment:
+      # PHP & Database Env
+      - "APP_TIMEZONE=Asia/Jakarta"
+      - "DB_HOST_CONFIG=database"
+      - "DB_NAME_CONFIG=tkj_inventory"
+      - "DB_USER_CONFIG=user_password_database"
+      - "DB_PASS_CONFIG=secure_password_database"
+      # Google Script For Backup
+      - "GOOGLE_SCRIPT_URL="
+      - "GOOGLE_SCRIPT_SECRET="
+      # Google Drive
+      - "GOOGLE_DRIVE_HISTORY_BACKUP_FOLDER_ID="
+      - "GOOGLE_DRIVE_STOCK_EXPORT_FOLDER_ID="
+      - "GOOGLE_DRIVE_ACCOUNTS_EXPORT_FOLDER_ID="
+      - "GOOGLE_DRIVE_AUTOBACKUP_FOLDER_ID="
+    volumes:
+      - tkj_inventory:/var/www/html/tkj-inventory:rw
+    networks:
+      - tkj_inventory
+  
+  webserver:
+    image: nginx:stable-alpine
+    container_name: tkj_inventory_webserver
+    restart: always
+    depends_on:
+      - database
+      - tkj_inventory
+    ports:
+      - "3552:80"
+    volumes:
+      - tkj_inventory:/var/www/html/tkj-inventory:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - tkj_inventory
+  
+  database:
+    image: yobasystems/alpine-mariadb:11
+    container_name: tkj_inventory_db
+    restart: always
+    environment:
+      # Database Env
+      - "MYSQL_ROOT_PASSWORD=secure_password_database"
+      - "MYSQL_DATABASE=tkj_inventory"
+      - "MYSQL_USER=user_password_database"
+      - "MYSQL_PASSWORD=secure_password_database"
+    volumes:
+      - database_data:/var/lib/mysql
+      # MariaDB will automatically perform the first execution for its database structure.
+      - ./tkj_inventory.sql:/docker-entrypoint-initdb.d/tkj_inventory.sql:ro
+    networks:
+      - tkj_inventory
+
+volumes:
+  database_data:
+  tkj_inventory:
+
+networks:
+  tkj_inventory:
+    driver: bridge

@@ -1,0 +1,12 @@
+# Environment
+.env
+.env.prod
+.env.semiprod
+.env.production
+.env.stage
+
+# Cache & Storage
+/temp
+/public/temp
+/public/assets/evidence
+/public/assets/img
