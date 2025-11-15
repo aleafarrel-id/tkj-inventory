@@ -1,3 +1,7 @@
+<?php
+    @include_once __DIR__ . '/../../config/config.ini.php';
+    $site_key = defined('RECAPTCHA_SITE_KEY') ? RECAPTCHA_SITE_KEY : '';
+?>
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -27,16 +31,16 @@
 <body>
     <main class="login-page-container aurora-background">
         <div class="login-card">
-            <div class="login-card-header">
-                <a href="#" class="header__logo" style="display: flex; align-items: center; justify-content: center; font-size: 1.6rem;">
-                    <i class='bx bxs-cube-alt'></i>
-                    <span>Inventaris <span class="logo-TKJ">TKJ</span></span>
-                </a>
-            </div>
-            
             <div class="form-card glass-card-content">
-                <div style="text-align: center; margin-bottom: 1.5rem;">
-                    <h2 style="font-size: 1.5rem; font-weight: 600;">Selamat Datang</h2>
+                <div class="login-card-header">
+                    <a href="#" class="header__logo" style="display: flex; align-items: center; justify-content: left; font-size: 1.2rem;">
+                        <i class='bx bxs-cube-alt' style="font-size: 1.2rem;"></i>
+                        <span>Inventaris <span class="logo-TKJ">TKJ</span></span>
+                    </a>
+                </div>
+
+                <div style="text-align: center; margin-bottom: 1.2rem;">
+                    <h2 style="font-size: 1.4rem; font-weight: 600;">Selamat Datang</h2>
                     <p style="color: var(--text-color-light);">Silakan login untuk melanjutkan</p>
                 </div>
 
@@ -51,19 +55,21 @@
                         <label for="password">Password</label>
                         <input type="password" id="password" name="password" placeholder="Password" required>
                     </div>
-                    <div class="login-actions stacked">
+
+                    <!-- Placeholder untuk reCAPTCHA -->
+                    <div class="form-group recaptcha-container">
+                        <div id="recaptcha-widget-container" data-sitekey="<?php echo htmlspecialchars($site_key); ?>"></div>
+                    </div>
+
+                    <!-- Mengubah layout tombol menjadi 'horizontal' -->
+                    <div class="login-actions horizontal">
                         <button type="submit" id="loginBtn" class="btn btn-primary">
                             <span class="btn-text">Login</span>
                             <div class="spinner" style="display: none;"></div>
                         </button>
-                        <div class="or-separator">
-                            <hr>
-                            <span>Atau</span>
-                            <hr>
-                        </div>
-                        <button type="button" id="loginBarcodeBtn" class="btn btn-secondary">
+                        <!-- Tombol barcode diubah menjadi tombol ikon kecil -->
+                        <button type="button" id="loginBarcodeBtn" class="btn btn-secondary btn-icon" title="Login Barcode">
                             <i class='bx bx-barcode-reader'></i>
-                            <span class="btn-text">Login Barcode</span>
                         </button>
                     </div>
                 </form>
@@ -115,7 +121,7 @@
                     <label for="modalPassword">Password</label>
                     <input type="password" id="modalPassword" placeholder="Password Anda" required>
                 </div>
-                <div class="login-actions">
+                <div class="login-actions login-modal-actions horizontal">
                      <button type="button" id="cancelModalLoginBtn" class="btn btn-secondary">Batal</button>
                      <button type="submit" id="modalLoginBtn" class="btn btn-primary">
                         <span class="btn-text">Login</span>

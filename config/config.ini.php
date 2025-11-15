@@ -59,6 +59,10 @@ define('DB_USER_CONFIG', env("DB_USER_CONFIG", 'root'));          # > Username
 define('DB_PASS_CONFIG', env("DB_PASS_CONFIG", ''));              # > Password
 define('DB_CHARSET_CONFIG', env("DB_CHARSET_CONFIG", 'utf8mb4'));
 
+// Kredensial reCAPTCHA v2
+define('RECAPTCHA_SITE_KEY', 'Kunci Situs Anda');
+define('RECAPTCHA_SECRET_KEY', 'Kunci Rahasia Anda');
+
 // Krendensial Backup Google Drive
 define('GOOGLE_SCRIPT_URL', env('GOOGLE_SCRIPT_URL', ''));
 define('GOOGLE_SCRIPT_SECRET', env('GOOGLE_SCRIPT_SECRET', ''));

@@ -348,19 +348,63 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    const loadAndRenderRecaptcha = (theme) => {
+        const widgetContainer = document.getElementById('recaptcha-widget-container');
+        if (!widgetContainer) {
+            console.log('recaptcha-widget-container not found');
+            return;
+        }
+
+        const siteKey = widgetContainer.dataset.sitekey;
+        if (!siteKey) {
+            console.error('reCAPTCHA site key not found on data-sitekey attribute.');
+            widgetContainer.innerHTML = '<p style="color:var(--danger-color); font-size: 0.8rem;">reCAPTCHA Gagal dimuat: Kunci situs tidak ditemukan.</p>';
+            return;
+        }
+
+        window.onRecaptchaLoad = () => {
+            try {
+                if (typeof grecaptcha !== 'undefined' && grecaptcha.render) {
+                    grecaptcha.render('recaptcha-widget-container', {
+                        'sitekey': siteKey,
+                        'theme': theme
+                    });
+                } else {
+                     throw new Error('grecaptcha.render is not a function');
+                }
+            } catch (e) {
+                console.error('Failed to render reCAPTCHA:', e);
+                widgetContainer.innerHTML = '<p style="color:var(--danger-color); font-size: 0.8rem;">reCAPTCHA Gagal dirender.</p>';
+            }
+        };
+
+        const script = document.createElement('script');
+        script.src = 'https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit';
+        script.async = true;
+        script.defer = true;
+        document.head.appendChild(script);
+    };
+
     const setupTheme = () => {
         const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         const savedTheme = localStorage.getItem('theme');
         const isDark = savedTheme === 'dark' || (!savedTheme && prefersDark);
         document.documentElement.classList.toggle('dark', isDark);
+        return isDark ? 'dark' : 'light';
     };
-    setupTheme();
+    
+    // Panggil setupTheme DAN muat reCAPTCHA
+    const appTheme = setupTheme();
+    loadAndRenderRecaptcha(appTheme);
+
 
     const showLoading = (isLoading, button) => {
         button.disabled = isLoading;
         button.classList.toggle('btn-loading', isLoading);
-        button.querySelector('.btn-text').style.visibility = isLoading ? 'hidden' : 'visible';
-        button.querySelector('.spinner').style.display = isLoading ? 'inline-block' : 'none';
+        const btnText = button.querySelector('.btn-text');
+        const spinner = button.querySelector('.spinner');
+        if (btnText) btnText.style.visibility = isLoading ? 'hidden' : 'visible';
+        if (spinner) spinner.style.display = isLoading ? 'inline-block' : 'none';
     };
     
     const showMessage = (message, element) => {
@@ -372,13 +416,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 3000);
     };
 
-    const performLogin = async (username, password, button, errorElement) => {
+    const performLogin = async (username, password, button, errorElement, recaptchaToken = null) => {
         showLoading(true, button);
         errorElement.style.display = 'none';
 
         const formData = new FormData();
         formData.append('username', username);
         formData.append('password', password);
+
+        if (recaptchaToken !== null) {
+            formData.append('g-recaptcha-response', recaptchaToken);
+        }
+
         try {
             const response = await fetch('../auth.php?action=login', {
                 method: 'POST',
@@ -394,23 +443,41 @@ document.addEventListener('DOMContentLoaded', () => {
             showMessage('Tidak dapat terhubung ke server.', errorElement);
         } finally {
             showLoading(false, button);
+            // Hanya reset jika reCAPTCHA ada dan token telah dikirim
+            if (recaptchaToken !== null && typeof grecaptcha !== 'undefined' && grecaptcha.reset) {
+                grecaptcha.reset();
+            }
         }
     };
 
     // Event Listeners
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        if (typeof grecaptcha === 'undefined' || !grecaptcha.getResponse) {
+            showMessage("Verifikasi reCAPTCHA belum siap. Coba lagi.", errorMessageDiv);
+            return;
+        }
+
+        const recaptchaResponse = grecaptcha.getResponse();
+
+        if (!recaptchaResponse) {
+            showMessage("Harap verifikasi reCAPTCHA.", errorMessageDiv);
+            return;
+        }
+
         await performLogin(
             loginForm.querySelector('#username').value,
             loginForm.querySelector('#password').value,
             loginBtn,
-            errorMessageDiv
+            errorMessageDiv,
+            recaptchaResponse
         );
     });
 
     loginBarcodeBtn.addEventListener('click', () => {
         barcodeScanner.style.display = 'flex';
-        currentCameraIndex = 0; // Start dengan kamera pertama (back/environment)
+        currentCameraIndex = 0;
         availableCameras = []; // Reset list kamera
         startScanner();
     });
@@ -425,7 +492,8 @@ document.addEventListener('DOMContentLoaded', () => {
             modalUsernameInput.value,
             modalPasswordInput.value,
             modalLoginBtn,
-            modalErrorMessageDiv
+            modalErrorMessageDiv,
+            null
         );
     });
     

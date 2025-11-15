@@ -327,3 +327,17 @@ html.dark .image-viewer__header {
 html.dark .image-viewer__body {
     background-color: rgba(0, 0, 0, 0.2);
 }
+
+/* Penyesuaian untuk Login Page di Mode Gelap */
+html.dark .login-page-container .form-group input {
+    background-color: rgba(0,0,0,0.2);
+}
+html.dark .login-actions .btn-secondary {
+    background-color: rgba(255,255,255,0.1);
+}
+html.dark #recaptcha-widget-container {
+    background-color: #1a1a1a;
+}
+html.dark .recaptcha-placeholder {
+    background-color: rgba(0,0,0,0.2);
+}

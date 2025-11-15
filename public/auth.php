@@ -45,6 +45,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             json_response('error', 'Username dan password harus diisi.');
         }
 
+        // Cek apakah kunci reCAPTCHA ada
+        $recaptcha_secret = defined('RECAPTCHA_SECRET_KEY') ? RECAPTCHA_SECRET_KEY : '';
+        $recaptcha_site_key_defined = defined('RECAPTCHA_SITE_KEY') && RECAPTCHA_SITE_KEY;
+
+        if (!empty($recaptcha_secret) && $recaptcha_site_key_defined) {
+            
+            if (isset($_POST['g-recaptcha-response'])) {
+                
+                $recaptcha_response = $_POST['g-recaptcha-response'];
+
+                // Validasi tambahan jika token dikirim tapi kosong
+                if (empty($recaptcha_response)) {
+                    json_response('error', 'Verifikasi reCAPTCHA tidak valid. Coba lagi.');
+                }
+
+                $verification_url = 'https://www.google.com/recaptcha/api/siteverify';
+                $post_data = http_build_query([
+                    'secret' => $recaptcha_secret,
+                    'response' => $recaptcha_response,
+                    'remoteip' => $_SERVER['REMOTE_ADDR']
+                ]);
+
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $verification_url);
+                curl_setopt($ch, CURLOPT_POST, 1);
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $post_data);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                $response = curl_exec($ch);
+                curl_close($ch);
+
+                $result = json_decode($response, true);
+
+                if (!$result || !isset($result['success']) || $result['success'] !== true) {
+                    // Kirim pesan error spesifik jika terdeteksi bot
+                    $error_codes = $result['error-codes'] ?? [];
+                    if (in_array('timeout-or-duplicate', $error_codes)) {
+                        json_response('error', 'Verifikasi reCAPTCHA kedaluwarsa. Muat ulang halaman.');
+                    } else {
+                        json_response('error', 'Verifikasi reCAPTCHA gagal. Silakan coba lagi.');
+                    }
+                }
+            }
+        }
+
         try {
             // Ambil pengguna berdasarkan username dan join dengan tabel kelas untuk mendapatkan nama kelas.
             $stmt = $pdo->prepare("
