@@ -193,6 +193,11 @@ This project is built with a passion for simplicity and performance, using only 
     - Fill your site key into `RECAPTCHA_SITE_KEY`.
     - Fill your secret key into `RECAPTCHA_SECRET_KEY`.
 
+5. Run the application with docker compose on cli
+   ```bash
+   docker compose up -d
+   ```
+
 You're all set! Open your browser and navigate to your domain or IP address. 🎉
 
 ---
