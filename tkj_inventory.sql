@@ -3,14 +3,12 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: localhost:3306
--- Generation Time: Sep 16, 2025 at 10:52 PM
 -- Server version: 10.11.13-MariaDB-0ubuntu0.24.04.1
 -- PHP Version: 8.3.6
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
 SET time_zone = "+07:00";
-
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -36,7 +34,9 @@ CREATE TABLE `borrowals` (
   `borrower_class` varchar(100) NOT NULL,
   `subject` varchar(255) DEFAULT NULL,
   `borrow_date` timestamp NOT NULL DEFAULT current_timestamp(),
-  `user_id` int(11) DEFAULT NULL
+  `user_id` int(11) DEFAULT NULL,
+  `item_condition` enum('good','bad') NOT NULL DEFAULT 'good',
+  `condition_remark` text DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -68,7 +68,11 @@ CREATE TABLE `history` (
   `borrow_date` timestamp NOT NULL,
   `return_date` timestamp NOT NULL DEFAULT current_timestamp(),
   `proof_image_url` varchar(2048) DEFAULT NULL,
-  `user_id` int(11) DEFAULT NULL
+  `user_id` int(11) DEFAULT NULL,
+  `item_condition` enum('good','bad') NOT NULL DEFAULT 'good',
+  `condition_remark` text DEFAULT NULL,
+  `is_swap` tinyint(1) NOT NULL DEFAULT 0,
+  `swap_new_item_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
@@ -79,6 +83,7 @@ CREATE TABLE `history` (
 
 CREATE TABLE `items` (
   `id` int(11) NOT NULL,
+  `item_code` varchar(64) NOT NULL,
   `name` varchar(255) NOT NULL,
   `total_quantity` int(11) NOT NULL,
   `current_quantity` int(11) NOT NULL,
@@ -149,7 +154,8 @@ ALTER TABLE `borrowals`
   ADD KEY `item_id` (`item_id`),
   ADD KEY `transaction_id` (`transaction_id`),
   ADD KEY `user_id` (`user_id`),
-  ADD KEY `borrower_class` (`borrower_class`);
+  ADD KEY `borrower_class` (`borrower_class`),
+  ADD KEY `idx_borrowals_date` (`borrow_date`);
 
 --
 -- Indexes for table `classes`
@@ -166,13 +172,18 @@ ALTER TABLE `history`
   ADD KEY `item_id_history` (`item_id`),
   ADD KEY `transaction_id` (`transaction_id`),
   ADD KEY `user_id` (`user_id`),
-  ADD KEY `borrower_class` (`borrower_class`);
+  ADD KEY `borrower_class` (`borrower_class`),
+  ADD KEY `idx_history_dates` (`borrow_date`,`return_date`),
+  ADD KEY `idx_history_borrower` (`borrower_name`);
 
 --
 -- Indexes for table `items`
 --
 ALTER TABLE `items`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `item_code` (`item_code`),
+  ADD KEY `name` (`name`),
+  ADD KEY `idx_items_classifier` (`classifier`);
 
 --
 -- Indexes for table `settings`

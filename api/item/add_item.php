@@ -24,10 +24,12 @@ if ($image && $image['error'] === UPLOAD_ERR_OK) {
 }
 
 try {
-    $sql = "INSERT INTO items (name, total_quantity, current_quantity, image_url, classifier) VALUES (?, ?, ?, ?, ?)";
+    $item_code = strtoupper(uniqid('INV-'));
+
+    $sql = "INSERT INTO items (item_code, name, total_quantity, current_quantity, image_url, classifier) VALUES (?, ?, ?, ?, ?, ?)";
     $stmt = $pdo->prepare($sql);
-    // Jika classifier kosong, masukkan NULL ke database
-    $stmt->execute([$name, $total_quantity, $total_quantity, $image_url, empty($classifier) ? null : $classifier]);
+    // Masukkan item_code yang baru dibuat ke database
+    $stmt->execute([$item_code, $name, $total_quantity, $total_quantity, $image_url, empty($classifier) ? null : $classifier]);
     
     json_response('success', 'Barang berhasil ditambahkan.');
 

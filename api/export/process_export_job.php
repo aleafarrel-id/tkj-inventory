@@ -105,13 +105,14 @@ if ($all_jobs_done && $status_data['status'] !== 'finalizing') {
         $status_data['log'][] = ['time' => date('H:i:s'), 'message' => 'Semua gambar selesai diunggah. Membuat file CSV stok...', 'status' => 'info'];
         $drive_urls_map = $status_data['drive_urls_map'] ?? [];
         
-        $stmt = $pdo->query("SELECT id, name, classifier, total_quantity FROM items ORDER BY classifier, name");
+        $stmt = $pdo->query("SELECT id, item_code, name, classifier, total_quantity FROM items ORDER BY classifier, name");
         $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        $csv_data = [['Nama Barang', 'Jenis Barang', 'Jumlah', 'Link Gambar']];
+        $csv_data = [['Kode Barang', 'Nama Barang', 'Jenis Barang', 'Jumlah', 'Link Gambar']];
+        
         foreach ($items as $item) {
-            $image_link = $drive_urls_map[$item['id']] ?? ''; 
-            $csv_data[] = [$item['name'], $item['classifier'], $item['total_quantity'], $image_link];
+            $image_link = $drive_urls_map[$item['id']] ?? '';
+            $csv_data[] = [$item['item_code'], $item['name'], $item['classifier'], $item['total_quantity'], $image_link];
         }
         $csv_filename = 'ekspor_stok_' . date('Y-m-d_H-i-s') . '.csv';
         $folder_id = GOOGLE_DRIVE_STOCK_EXPORT_FOLDER_ID;

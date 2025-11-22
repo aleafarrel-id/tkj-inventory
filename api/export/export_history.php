@@ -8,7 +8,7 @@ header('Content-Disposition: attachment; filename="riwayat_peminjaman_' . date('
 // Buat file pointer yang terhubung ke output stream PHP.
 $output = fopen('php://output', 'w');
 
-// Membuat header tabel CSV dengan urutan baru: NIS di depan.
+// HEADER CSV
 fputcsv($output, [
     'NIS',
     'Nama Peminjam',
@@ -16,6 +16,10 @@ fputcsv($output, [
     'Mata Pelajaran',
     'Nama Barang',
     'Jenis Alat',
+    'Status Penukaran',
+    'Barang Pengganti',
+    'Kondisi Akhir',
+    'Keterangan',
     'Jumlah',
     'Tanggal Pinjam',
     'Tanggal Kembali',
@@ -26,7 +30,6 @@ fputcsv($output, [
 try {
     $base_url = get_base_url();
 
-    // Query SQL untuk logika ekspor, dengan JOIN ke tabel users untuk mendapatkan NIS.
     $stmt = $pdo->query("
         SELECT 
             h.transaction_id,
@@ -39,9 +42,14 @@ try {
             h.quantity, 
             h.borrow_date, 
             h.return_date,
-            h.proof_image_url
+            h.proof_image_url,
+            h.is_swap,
+            h.item_condition,
+            h.condition_remark,
+            i_new.name as swap_item_name
         FROM history h 
         JOIN items i ON h.item_id = i.id
+        LEFT JOIN items i_new ON h.swap_new_item_id = i_new.id
         LEFT JOIN users u ON h.user_id = u.id
         ORDER BY h.return_date DESC, h.transaction_id DESC
     ");
@@ -53,8 +61,8 @@ try {
             $row['proof_image_url'] = $base_url . '/' . ltrim($row['proof_image_url'], '/');
         }
 
+        // Logika visual: Kosongkan data berulang jika dalam satu transaksi yang sama
         if (!empty($row['transaction_id']) && $row['transaction_id'] === $last_transaction_id) {
-            // Kosongkan kolom yang relevan jika ID transaksi sama.
             $row['borrower_nis'] = '';
             $row['borrower_name'] = '';
             $row['borrower_class'] = '';
@@ -66,7 +74,14 @@ try {
             $last_transaction_id = $row['transaction_id'];
         }
         
-        // Buat baris data CSV dengan urutan yang benar
+        // --- KONVERSI DATA AGAR READABLE ---
+        
+        $status_penukaran = $row['is_swap'] ? 'Ya' : 'Tidak';       
+        $barang_pengganti = !empty($row['swap_item_name']) ? $row['swap_item_name'] : '-';
+        $kondisi_akhir = ($row['item_condition'] === 'bad') ? 'Rusak' : 'Baik';
+        $keterangan = !empty($row['condition_remark']) ? $row['condition_remark'] : '-';
+
+        // Susun baris CSV sesuai urutan Header
         $csv_row = [
             $row['borrower_nis'],
             $row['borrower_name'],
@@ -74,6 +89,10 @@ try {
             $row['subject'],
             $row['item_name'],
             $row['classifier'],
+            $status_penukaran,
+            $barang_pengganti,
+            $kondisi_akhir,
+            $keterangan,
             $row['quantity'],
             $row['borrow_date'],
             $row['return_date'],

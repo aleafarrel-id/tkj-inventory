@@ -51,7 +51,10 @@ try {
             $search = $_GET['search'] ?? '';
             $filterDate = $_GET['filterDate'] ?? '';
 
-            $baseQuery = "FROM history h JOIN items i ON h.item_id = i.id";
+            $baseQuery = "FROM history h 
+                          JOIN items i ON h.item_id = i.id 
+                          LEFT JOIN items i_new ON h.swap_new_item_id = i_new.id";
+
             $conditions = [];
             $params = [];
 
@@ -62,9 +65,9 @@ try {
             }
 
             if (!empty($search)) {
-                $conditions[] = "(h.borrower_name LIKE ? OR h.borrower_class LIKE ? OR i.name LIKE ? OR h.subject LIKE ?)";
+                $conditions[] = "(h.borrower_name LIKE ? OR h.borrower_class LIKE ? OR i.name LIKE ? OR i_new.name LIKE ? OR h.subject LIKE ?)";
                 $searchTerm = "%{$search}%";
-                array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
+                array_push($params, $searchTerm, $searchTerm, $searchTerm, $searchTerm, $searchTerm);
             }
 
             if (!empty($filterDate)) {
@@ -84,7 +87,7 @@ try {
             $totalRecords = $stmtTotal->fetchColumn();
 
             // Query untuk mendapatkan data dengan paginasi
-            $dataQuery = "SELECT h.*, i.name as item_name, i.image_url " . $baseQuery . $whereClause . " ORDER BY h.return_date DESC, h.transaction_id DESC LIMIT ? OFFSET ?";
+            $dataQuery = "SELECT h.*, i.name as item_name, i.image_url, i_new.name as swap_new_item_name " . $baseQuery . $whereClause . " ORDER BY h.return_date DESC, h.transaction_id DESC LIMIT ? OFFSET ?";
             $dataParams = array_merge($params, [$limit, $offset]);
             
             $stmtData = $pdo->prepare($dataQuery);

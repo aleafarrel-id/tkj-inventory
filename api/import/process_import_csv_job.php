@@ -87,6 +87,7 @@ $current_offset = $status_data['current_offset'];
 fseek($handle_csv, $current_offset);
 
 $import_type = $status_data['import_type'];
+$has_item_code = $status_data['has_item_code'] ?? false;
 $last_transaction_data = $status_data['last_transaction_data'] ?? [];
 $all_jobs_done = false;
 $rows_processed_in_batch = 0;
@@ -97,55 +98,116 @@ try {
     for ($i = 0; $i < JOB_BATCH_SIZE_IMPORT; $i++) {
         $data = fgetcsv($handle_csv, 2000, ",");
 
-        // Jika akhir file
         if ($data === false) {
             $all_jobs_done = true;
             break;
         }
 
-        // Lewati baris kosong
         if (empty(array_filter($data))) {
             $status_data['processed']++;
             continue;
         }
 
-        $log_preview = $data[0] ?? 'N/A';
-        if ($import_type === 'history') $log_preview = $data[1] ?? $log_preview;
-        if ($import_type === 'stock') $log_preview = $data[0] ?? $log_preview;
+        // Tentukan preview log
+        $log_preview = 'Item';
+        if ($import_type === 'stock') {
+             $name_idx = $has_item_code ? 1 : 0;
+             $log_preview = $data[$name_idx] ?? 'N/A';
+        } elseif ($import_type === 'history') {
+             $log_preview = $data[1] ?? 'N/A';
+        } elseif ($import_type === 'accounts') {
+             $log_preview = $data[0] ?? 'N/A';
+        }
+
 
         try {
             if ($import_type === 'stock') {
-                $name = isset($data[0]) ? sanitize_input($data[0]) : null;
-                $classifier = isset($data[1]) ? sanitize_input(trim($data[1])) : null;
-                $quantity = isset($data[2]) ? (int)$data[2] : null;
-                $image_url_source = isset($data[3]) ? trim($data[3]) : null;
-                if (empty($name) || $quantity === null || $quantity < 1) throw new Exception("Data tidak valid (nama/jumlah).");
+                // --- Logika Impor Stok dengan Item Code ---
+                
+                if ($has_item_code) {
+                    $csv_item_code = isset($data[0]) ? sanitize_input(trim($data[0])) : null;
+                    $name = isset($data[1]) ? sanitize_input($data[1]) : null;
+                    $classifier = isset($data[2]) ? sanitize_input(trim($data[2])) : null;
+                    $quantity = isset($data[3]) ? (int)$data[3] : null;
+                    $image_url_source = isset($data[4]) ? trim($data[4]) : null;
+                    
+                    // Jika user mengosongkan kolom kode di CSV, generate baru
+                    if (empty($csv_item_code)) {
+                        $item_code = strtoupper(uniqid('INV-'));
+                    } else {
+                        $item_code = $csv_item_code;
+                    }
+                } else {
+                    $name = isset($data[0]) ? sanitize_input($data[0]) : null;
+                    $classifier = isset($data[1]) ? sanitize_input(trim($data[1])) : null;
+                    $quantity = isset($data[2]) ? (int)$data[2] : null;
+                    $image_url_source = isset($data[3]) ? trim($data[3]) : null;
+                    
+                    $item_code = strtoupper(uniqid('INV-'));
+                }
+
+                if (empty($name) || $quantity === null || $quantity < 1) {
+                    throw new Exception("Data tidak valid (nama/jumlah).");
+                }
+
                 $image_result = download_image_from_url($image_url_source, $import_type);
                 $saved_image_path = $image_result['path'] ?? 'assets/favicon/dummy.jpg';
-                if ($image_result['status'] === 'error') {
+                
+                if ($image_result['status'] === 'error' && !empty($image_url_source)) {
                     $status_data['log'][] = ['time' => date('H:i:s'), 'message' => "{$name}: " . $image_result['message'] . ". Menggunakan gambar default.", 'status' => 'warning'];
                 }
-                $sql = "INSERT INTO items (name, total_quantity, current_quantity, image_url, classifier) VALUES (?, ?, ?, ?, ?)";
+                
+                // Insert termasuk item_code
+                $sql = "INSERT INTO items (item_code, name, total_quantity, current_quantity, image_url, classifier) VALUES (?, ?, ?, ?, ?, ?)";
                 $stmt = $pdo->prepare($sql);
-                $stmt->execute([$name, $quantity, $quantity, $saved_image_path, empty($classifier) ? null : $classifier]);
+                $stmt->execute([$item_code, $name, $quantity, $quantity, $saved_image_path, empty($classifier) ? null : $classifier]);
 
             } elseif ($import_type === 'history') {
+                // Logika History
                 $borrower_nis = isset($data[0]) ? trim($data[0]) : null;
-                $borrower_name = $data[1] ?? null; $borrower_class = $data[2] ?? null; $subject = $data[3] ?? null;
-                $item_name = $data[4] ?? null; $quantity = isset($data[6]) ? (int)$data[6] : null;
-                $borrow_date_str = $data[7] ?? null; $return_date_str = $data[8] ?? null; $proof_url = $data[9] ?? null;
+                $borrower_name = $data[1] ?? null; 
+                $borrower_class = $data[2] ?? null; 
+                $subject = $data[3] ?? null;
+                $item_name = $data[4] ?? null;
+                // $classifier = $data[5] (Tidak perlu disimpan ke history, hanya info di CSV)
+                $status_penukaran_str = $data[6] ?? 'Tidak';
+                $barang_pengganti_name = $data[7] ?? '-';
+                $kondisi_akhir_str = $data[8] ?? 'Baik';
+                $keterangan = ($data[9] !== '-' && !empty($data[9])) ? $data[9] : null;
+                $quantity = isset($data[10]) ? (int)$data[10] : null;
+                $borrow_date_str = $data[11] ?? null; 
+                $return_date_str = $data[12] ?? null; 
+                $proof_url = $data[13] ?? null;
+
+                // Konversi Data ke Format Database
+                $is_swap = (strtolower($status_penukaran_str) === 'ya') ? 1 : 0;
+                $item_condition = (strtolower($kondisi_akhir_str) === 'rusak') ? 'bad' : 'good';
+                
+                // Cari User ID
                 $user_id = null;
                 if (!empty($borrower_nis)) {
                     $stmt_find_user = $pdo->prepare("SELECT id FROM users WHERE nis = ? LIMIT 1");
                     $stmt_find_user->execute([$borrower_nis]);
                     $user_id = $stmt_find_user->fetchColumn();
                 }
+
+                // Cari ID Barang Pengganti (Jika ada penukaran)
+                $swap_new_item_id = null;
+                if ($is_swap && !empty($barang_pengganti_name) && $barang_pengganti_name !== '-') {
+                    $stmt_find_swap = $pdo->prepare("SELECT id FROM items WHERE name = ? LIMIT 1");
+                    $stmt_find_swap->execute([$barang_pengganti_name]);
+                    $swap_new_item_id = $stmt_find_swap->fetchColumn() ?: null;
+                }
+
+                // Proses Transaksi & Bukti Foto
                 if (!empty($borrower_nis) || !empty($borrower_name)) {
                     $image_result = download_image_from_url($proof_url, $import_type);
                     $image_path_for_db = $image_result['path'];
-                    if ($image_result['status'] === 'error') {
+                    
+                    if ($image_result['status'] === 'error' && !empty($proof_url)) {
                         $status_data['log'][] = ['time' => date('H:i:s'), 'message' => "{$borrower_name} ({$item_name}): " . $image_result['message'], 'status' => 'warning'];
                     }
+                    
                     $last_transaction_data = [
                         'borrower_name' => $borrower_name, 'borrower_class' => $borrower_class, 'subject' => $subject,
                         'borrow_date' => !empty($borrow_date_str) ? date('Y-m-d H:i:s', strtotime($borrow_date_str)) : null,
@@ -153,15 +215,42 @@ try {
                         'proof_image_url' => $image_path_for_db, 'transaction_id' => 'imported-' . uniqid(), 'user_id' => $user_id
                     ];
                 }
+
                 if (empty($item_name) || empty($quantity)) throw new Exception("Nama barang atau jumlah kosong.");
+                
+                // Cari ID Barang Utama
                 $stmt_find_item = $pdo->prepare("SELECT id FROM items WHERE name = ? LIMIT 1");
                 $stmt_find_item->execute([$item_name]);
                 $item_id = $stmt_find_item->fetchColumn();
+                
                 if (!$item_id) throw new Exception("Barang '{$item_name}' tidak ditemukan di database.");
-                $stmt_insert = $pdo->prepare("INSERT INTO history (item_id, quantity, borrower_name, borrower_class, subject, borrow_date, return_date, proof_image_url, transaction_id, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt_insert->execute([$item_id, $quantity, $last_transaction_data['borrower_name'], $last_transaction_data['borrower_class'], $last_transaction_data['subject'], $last_transaction_data['borrow_date'], $last_transaction_data['return_date'], $last_transaction_data['proof_image_url'], $last_transaction_data['transaction_id'], $last_transaction_data['user_id']]);
+                
+                $sql_insert = "INSERT INTO history (
+                    item_id, quantity, borrower_name, borrower_class, subject, 
+                    borrow_date, return_date, proof_image_url, transaction_id, user_id,
+                    is_swap, swap_new_item_id, item_condition, condition_remark
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                
+                $stmt_insert = $pdo->prepare($sql_insert);
+                $stmt_insert->execute([
+                    $item_id, 
+                    $quantity, 
+                    $last_transaction_data['borrower_name'], 
+                    $last_transaction_data['borrower_class'], 
+                    $last_transaction_data['subject'], 
+                    $last_transaction_data['borrow_date'], 
+                    $last_transaction_data['return_date'], 
+                    $last_transaction_data['proof_image_url'], 
+                    $last_transaction_data['transaction_id'], 
+                    $last_transaction_data['user_id'],
+                    $is_swap,         
+                    $swap_new_item_id,
+                    $item_condition,  
+                    $keterangan       
+                ]);
 
             } elseif ($import_type === 'accounts') {
+                 // Logika Akun
                 $nis = isset($data[0]) ? trim($data[0]) : null;
                 $password_from_csv = $data[1] ?? null;
                 $nama = isset($data[2]) ? sanitize_input(trim($data[2])) : null;
@@ -195,7 +284,7 @@ try {
         } catch (Exception $e) {
             $error_message = $e->getMessage();
             if ($e instanceof PDOException && $e->getCode() == 23000) {
-                $error_message = "Data duplikat (NIS atau Username sudah ada).";
+                $error_message = "Data duplikat (Kode/NIS sudah ada).";
             }
             $status_data['failed']++;
             $status_data['log'][] = ['time' => date('H:i:s'), 'message' => $log_preview . ' - Gagal: ' . $error_message, 'status' => 'error'];

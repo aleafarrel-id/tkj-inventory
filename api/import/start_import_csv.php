@@ -2,7 +2,7 @@
 /**
  * Endpoint untuk MEMULAI proses impor CSV (Stok, Riwayat, atau Akun).
  * Bertugas memvalidasi file, mendeteksi tipe CSV berdasarkan header,
- * dan membuat file status antrian (TANPA job list, hanya offset).
+ * dan membuat file status antrian.
  */
 
 // Lokasi file status/antrian.
@@ -39,8 +39,8 @@ if (file_exists($status_file_path)) {
 $file = $_FILES['csv_file'];
 
 $mime_type = mime_content_type($file['tmp_name']);
-$allowed_mime_types = ['text/csv', 'text/plain', 'application/csv'];
-if (!in_array($mime_type, $allowed_mime_types)) {
+$allowed_mime_types = ['text/csv', 'text/plain', 'application/csv', 'text/x-csv', 'application/vnd.ms-excel'];
+if (!in_array($mime_type, $allowed_mime_types) && strpos($file['name'], '.csv') === false) {
     json_response('error', 'Tipe file tidak valid. Harap unggah file .csv');
 }
 
@@ -60,19 +60,37 @@ try {
     
     // --- Deteksi Tipe CSV Berdasarkan Header ---
     $header = fgetcsv($handle);
-    $header_offset = ftell($handle); // Simpan posisi file setelah membaca header
+    $header_offset = ftell($handle);
 
     $detected_type = null;
-    $stock_header = ['Nama Barang', 'Jenis Barang', 'Jumlah', 'Link Gambar'];
-    $history_header = ['NIS', 'Nama Peminjam', 'Kelas', 'Mata Pelajaran', 'Nama Barang', 'Jenis Alat', 'Jumlah', 'Tanggal Pinjam', 'Tanggal Kembali', 'Link Bukti Google Drive'];
+    $has_item_code = false;
+
+    // Definisi Header
+    $stock_header_old = ['Nama Barang', 'Jenis Barang', 'Jumlah', 'Link Gambar'];
+    $stock_header_new = ['Kode Barang', 'Nama Barang', 'Jenis Barang', 'Jumlah', 'Link Gambar'];
+    
+    $history_header = ['NIS', 'Nama Peminjam', 'Kelas', 'Mata Pelajaran', 'Nama Barang', 'Jenis Alat', 'Status Penukaran', 'Barang Pengganti', 'Kondisi Akhir', 'Keterangan', 'Jumlah', 'Tanggal Pinjam', 'Tanggal Kembali', 'Link Bukti'];
     $account_header = ['NIS', 'Password', 'Nama', 'Kelas'];
 
-    if (is_array($header) && count($header) === count($stock_header) && !array_diff($header, $stock_header)) {
-        $detected_type = 'stock';
-    } elseif (is_array($header) && count($header) === count($history_header) && !array_diff($header, $history_header)) {
-        $detected_type = 'history';
-    } elseif (is_array($header) && count($header) === count($account_header) && !array_diff($header, $account_header)) {
-        $detected_type = 'accounts';
+    if (is_array($header)) {
+        // Cek Stok (Ada Kode)
+        if (count($header) === count($stock_header_new) && !array_diff($header, $stock_header_new)) {
+            $detected_type = 'stock';
+            $has_item_code = true;
+        } 
+        // Cek Stok (Tanpa Kode)
+        elseif (count($header) === count($stock_header_old) && !array_diff($header, $stock_header_old)) {
+            $detected_type = 'stock';
+            $has_item_code = false;
+        }
+        // Cek History
+        elseif (count($header) === count($history_header) && !array_diff($header, $history_header)) {
+            $detected_type = 'history';
+        }
+        // Cek Akun
+        elseif (count($header) === count($account_header) && !array_diff($header, $account_header)) {
+            $detected_type = 'accounts';
+        }
     }
     
     if ($detected_type === null) {
@@ -108,6 +126,7 @@ try {
     $initial_status = [
         'status' => 'running',
         'import_type' => $import_type,
+        'has_item_code' => $has_item_code,
         'csv_file' => $temp_csv_filename,
         'total' => $total_rows,
         'processed' => 0,

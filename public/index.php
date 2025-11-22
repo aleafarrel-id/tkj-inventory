@@ -23,7 +23,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventaris TKJ</title>
     <!-- Stylesheets -->
-    <link rel="stylesheet" href="assets/css/main.css" type="text/css">
+    <link rel="stylesheet" href="assets/css/main.css"
     <!-- Favicon & Icons -->
     <link rel="shortcut icon" href="assets/favicon/favicon.png" type="image/x-icon">
     <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
@@ -33,6 +33,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" crossorigin="anonymous"></script>
+    <!-- HTML5-QRCode CDN -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 </head>
 <body data-role="<?php echo htmlspecialchars($user_role); ?>">
     <div id="loadingOverlay" class="loading-overlay">
@@ -413,6 +415,9 @@
         <?php endif; ?>
 
         <!-- FAB Umum -->
+        <button id="fabScanQrBtn" class="fab" title="Scan QR Code" style="background-color: var(--primary-color);">
+            <i class='bx bx-qr-scan'></i>
+        </button>
         <button id="fabClearFilterBtn" class="fab" title="Hapus Filter Stok" style="background-color: var(--danger-color); display: none;">
             <i class='bx bx-filter'></i>
         </button>
@@ -483,6 +488,41 @@
             </div>
             <p class="lock-overlay__info">Peminjaman mulai pukul <span id="borrowingHours">00:00 - 00:00</span> WIB</p>
             <a class="back-to-login_page" href="./login/"><i class='bx bx-arrow-back'></i> Kembali</a>
+        </div>
+    </div>
+
+    <!-- Overlay Pemindai QR Code -->
+    <div id="qrScannerOverlay" style="display: none;">
+        <div class="scanner-info">
+            <i class='bx bx-qr-scan'></i>
+            Arahkan kamera ke QR Code Alat
+        </div>
+        
+        <!-- Viewport Kamera -->
+        <div id="qr-reader" class="viewport"></div>
+        
+        <!-- Kontrol Kamera (Zoom) -->
+        <div class="scanner-controls" id="qrScannerControls">
+            <div class="control-label">
+                <i class='bx bx-slider'></i>
+                <span>Kontrol Zoom</span>
+            </div>
+            <div class="control-group zoom-control">
+                <i class='bx bx-zoom-out'></i>
+                <input type="range" id="qrZoomSlider" min="1" max="5" step="0.1" value="1">
+                <i class='bx bx-zoom-in'></i>
+                <span id="qrZoomValue">1.0x</span>
+            </div>
+        </div>
+        
+        <!-- Tombol Aksi Bawah -->
+        <div class="scanner-bottom-actions">
+            <button id="qrSwitchCameraBtn" class="btn" type="button" style="display: none;">
+                <i class='bx bx-camera'></i>
+                <span class="btn-text">Ganti Kamera</span>
+                <span class="camera-count" id="qrCameraCount"></span>
+            </button>
+            <button id="qrCancelBtn" class="btn btn-danger">Batal</button>
         </div>
     </div>
 
